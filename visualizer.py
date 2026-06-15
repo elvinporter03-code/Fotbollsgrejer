@@ -193,4 +193,4 @@ def plot_elo_vs_points():
     plt.tight_layout()
     plt.show()
 
-plot_elo_vs_points()
+show_table()

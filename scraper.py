@@ -1,9 +1,11 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import csv
 import time
-import re
 
 def scrape_flashscore():
     url = "https://www.flashscore.se/fotboll/sverige/superettan/resultat/"
@@ -61,4 +63,55 @@ def scrape_flashscore():
     
     driver.quit()
 
+def scrape_upcoming_matches():
+    url = "https://www.flashscore.se/fotboll/sverige/superettan/matcher/"
+    
+    options = Options()
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options)
+    driver.get(url)
+    
+    time.sleep(3)
+    
+    # Klicka "Visa mer"
+    clicks = 0
+    while clicks < 20:
+        try:
+            show_more = driver.find_element(By.CLASS_NAME, "event__more")
+            driver.execute_script("arguments[0].scrollIntoView();", show_more)
+            time.sleep(1)
+            show_more.click()
+            clicks += 1
+            time.sleep(2)
+        except:
+            break
+    
+    time.sleep(2)
+    
+    matches = driver.find_elements(By.CLASS_NAME, "event__match")
+    upcoming = []
+    
+    for match in matches:
+        lines = match.text.strip().split('\n')
+        if len(lines) >= 3:
+            # Skippa matcher som redan har resultat
+            if len(lines) >= 4 and any(c.isdigit() for c in lines[3]):
+                continue
+            
+            upcoming.append({
+                "hemmalag": lines[1],
+                "bortalag": lines[2]
+            })
+    
+    # Spara till CSV (endast lagnamn)
+    with open("kommande_matcher.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["hemmalag", "bortalag"])
+        for match in upcoming:
+            writer.writerow([match["hemmalag"], match["bortalag"]])
+    
+    print(f"Sparade {len(upcoming)} kommande matcher till kommande_matcher.csv")
+    driver.quit()
+
 scrape_flashscore()
+scrape_upcoming_matches()

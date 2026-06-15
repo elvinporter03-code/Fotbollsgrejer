@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import ttk
 import csv
 import numpy as np
+from elo_calc import calculate_elo, update_csvs, update_elo
+from visualizer import show_table
+
 def predict_match(team_a, team_b):
     home_w = 0.58
     away_w = 0.42
@@ -23,7 +26,6 @@ def predict_match(team_a, team_b):
     expected_a -= d/2
     expected_b -= d/2
     return expected_a, expected_b, d
-
 def predictor_widget():
     # Läs in lag
     teams = []
@@ -91,6 +93,58 @@ def predictor_widget():
     # Starta
     update_odds()
     root.mainloop()
+def predict_season():
+    update_elo()
+    with open("kommande_matcher.csv", "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            team_a = row["hemmalag"]
+            team_b = row["bortalag"]
+            home_prob, away_prob, draw_prob = predict_match(team_a, team_b)
+            random_num = np.random.rand()
+            if random_num < home_prob:
+                result = 1
+            elif random_num < home_prob + draw_prob:
+                result = 0.5
+            else:
+                result = 0
+            elochanges = calculate_elo(team_a, team_b, result)
+            update_csvs(team_a, elochanges[0], result)
+            update_csvs(team_b, elochanges[1], 1-result)
+def get_average_elo_points(all_results):
+    from collections import defaultdict
+    
+    teams = defaultdict(lambda: {'elo_sum': 0, 'points_sum': 0, 'count': 0})
+    
+    for team, elo, points in all_results:
+        teams[team]['elo_sum'] += float(elo)
+        teams[team]['points_sum'] += int(points)
+        teams[team]['count'] += 1
+    
+    averages = {}
+    for team, data in teams.items():
+        averages[team] = {
+            'avg_elo': data['elo_sum'] / data['count'],
+            'avg_points': data['points_sum'] / data['count']
+        }
+    
+    return averages
+def simulate_season(nr):
+    all_results = []
+    for i in range(nr):
+        print(f"Simulering {i+1}/{nr}")
+        predict_season()
+        with open("elo.csv", "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                all_results.append((row['Team'], float(row['Elo']), float(row['points'])))
+    
+    averages = get_average_elo_points(all_results)
+    with open("elo.csv", "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Team", "Elo", "K", "last_result", "points"])
+        for team, data in averages.items():
+            writer.writerow([team, data['avg_elo'], 0, 0, data['avg_points']])
+    show_table()
 
-# Kör tkinter-versionen
-predictor_widget()
+simulate_season(100)
