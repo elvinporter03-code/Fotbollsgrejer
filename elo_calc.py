@@ -65,12 +65,12 @@ def calculate_elo(team_a, team_b, result):
                 team_b_elo = float(row["Elo"])
                 k2 = float(row["K"])
     k = (k1 + k2) / 2
-    expected_a = 1 / (1 + 10 ** ((team_b_elo - team_a_elo + 42) / 400))
+    expected_a = 1 / (1 + 10 ** ((team_b_elo - team_a_elo - 42) / 400))
     score_a = abs(0-result)
     new_team_a_elo = team_a_elo + k * (score_a - expected_a)
     new_team_b_elo = team_b_elo + k * (1 - score_a - expected_a)
 
-    return new_team_a_elo, new_team_b_elo
+    return new_team_a_elo, new_team_b_elo, expected_a
 def create_base_stats():
     base_k = 30
     base_elo = 1500
